@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# External
+/external/
+
+# Locals
+clang-format_errors.txt
+clang-tidy_errors.txt
+dox_errors.txt
+/build/
