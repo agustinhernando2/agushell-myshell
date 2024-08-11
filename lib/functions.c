@@ -7,15 +7,24 @@ int running = 1;
 char* const* argumentos;
 char pwd[PATH_MAX];
 
-void show_prompt(char* username, char* hostname)
+char* generate_prompt(char* username, char* hostname)
 {
+    static char buffer[BUFFER_SIZE];
+
     if (getcwd(pwd, sizeof(pwd)) == NULL)
     {
-        perror("Error");
+        return NULL;
     }
-    setenv(PWD, pwd, 1);
-    // ansi colors https://talyian.github.io/ansicolors/
-    printf(AMARILLO "%s@" GRIS "%s:~%s$" CELESTE ">", username, hostname, pwd);
+
+    int r = snprintf(buffer, sizeof(buffer), AMARILLO "%s@" GRIS "%s:~%s$" CELESTE ">", username, hostname, pwd);
+    if (r < 0 || r >= sizeof(buffer))
+    {
+        return NULL;
+    }
+
+    // setenv(PWD, pwd, 1);
+
+    return buffer;
 }
 
 int get_running()
@@ -25,7 +34,14 @@ int get_running()
 
 void exec_command(char* command)
 {
+    static char buffer[BUFFER_SIZE];
     char* cmd_token = strtok(command, SPACE);
+    
+    // clear \n if exists
+    if (cmd_token[strlen(cmd_token) - 1] == '\n')
+    {
+        cmd_token[strlen(cmd_token) - 1] = '\0';
+    }   
 
     if ((strcmp(cmd_token, "clr") == 0) || (strcmp(cmd_token, "clear") == 0))
     {
@@ -42,7 +58,34 @@ void exec_command(char* command)
     else if ((strcmp(cmd_token, "echo") == 0))
     {
         char* msg = strtok(NULL, "");
-        echo_shell(msg, strlen(msg));
+
+        // clear \n if exists
+        if (msg[strlen(msg) - 1] == '\n')
+        {
+            msg[strlen(msg) - 1] = '\0';
+        }
+
+        int r = echo_shell(msg, strlen(msg), buffer, sizeof(buffer));
+        if (r == -1)
+        {
+            fprintf(stderr, "%s\n", buffer);
+        }
+        else if (r == -2)
+        {
+            perror(ROJO "Error: snprintf");
+        }
+        else if (r == -3)
+        {
+            perror(ROJO "Error: msg is NULL");
+        }
+        else if (r == -4)
+        {
+            perror(ROJO "Error: bufflen is 0");
+        }
+        else
+        {
+            printf("%s\n", buffer);
+        }
     }
     else
     {
@@ -63,6 +106,7 @@ void exit_shell()
 
 char* get_directory(char* command)
 {
+
     char* token = strtok(command, SPACE);
     if (token != NULL)
     {
@@ -104,11 +148,16 @@ void exchange_directory(char* dir)
     }
 }
 
-void echo_shell(char* msg, size_t len)
+int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
 {
+
     if (msg == NULL)
     {
-        return;
+        return -3;
+    }
+    if (bufflen == 0)
+    {
+        return -4;
     }
     // compare if the first character is a dollar sign
     if (strncmp(msg, DOLLAR, 1) == 0)
@@ -117,29 +166,44 @@ void echo_shell(char* msg, size_t len)
         char* env = getenv(msg + 1);
         if (env != NULL)
         {
-            printf("%s\n", env);
+            snprintf(buffer, bufflen, "%s", env);
+            return 0;
         }
         else
         {
-            fprintf(stderr, ROJO "Error: Environment variable not found");
-            printf("\n");
+            int r = snprintf(buffer, bufflen, ROJO "Environment not found: %s", msg + 1);
+            if (r < 0 || r >= bufflen)
+            {
+                return -2;
+            }
+            return -1;
         }
     }
     else
     {
         // check if the message is a comment
-        if (msg[0] == '"' && (msg[len - 2] == '"'))
+        if (msg[0] == '"' && (msg[msglen - 1] == '"'))
         {
-            char comment[len - 2];
-            for (int i = 0; i < len - 3; i++)
+            char comment[msglen - 1];
+            for (int i = 0; i < msglen - 1; i++)
             {
                 comment[i] = msg[i + 1];
             }
-            comment[len - 3] = '\0';
-            printf("comment: %ld, %ld   %s\n", len, strlen(comment), comment);
+            comment[msglen - 2] = '\0';
+
+            int r = snprintf(buffer, bufflen, "comment: msglen[%ld], commlen[%ld], %s", msglen, strlen(comment),
+                             comment);
+            if (r < 0 || r >= bufflen)
+            {
+                return -2;
+            }
+            return 0;
         }
         else
-            printf("%s\n", msg);
+        {
+            snprintf(buffer, bufflen, "%s", msg);
+            return 0;
+        }
     }
 }
 

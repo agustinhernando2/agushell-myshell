@@ -2,6 +2,7 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,33 +16,31 @@
 #define CLEAR "\033[H\033[J"
 
 #define CMD_MAX 500
+#define BUFFER_SIZE 1024
 #define DOLLAR "$"
 #define SPACE " "
 #define PWD "PWD"
 #define USER "USER"
 #define OLDPWD "OLDPWD"
 
-#include <limits.h>
-
 /**
- * @brief obtiene el valor de la variable running.
+ * @brief get running status.
  * @return running
  * */
 int get_running();
 
 /**
- * @brief actualiza las variables de entorno cuando se cambia de directorio
- * y personaliza el command prompt de myshell
+ * @brief generate prompt.
  **/
-void show_prompt(char* username, char* hostname);
+char* generate_prompt(char* username, char* hostname);
 
 /**
- * @brief compara el comando y ejecuta funciones que respondan en funcion de él.
+ * @brief execute command in myshell.
  **/
 void exec_command(char* command);
 
 /**
- * @brief Limpia el command line de myshell.
+ * @brief clear shell.
  **/
 void clear_shell();
 
@@ -51,20 +50,30 @@ void clear_shell();
 void exit_shell();
 
 /**
- * @brief solicita el directorio actual.
- * @return currentDirectory
+ * @brief get current directory.
+ * @return current directory from pwd variable.
  **/
 char* get_directory(char* command);
 
 /**
- * @brief modifica el directorio actual en la variable de entorno.
+ * @brief modify the current directory.
  **/
 void exchange_directory(char* dir);
 
 /**
- * @brief ejecuta echo.
+ * @brief execute echo command. This function will print the message or comment.
+ * @param msg message to print.
+ * @param msglen length of the message.
+ * @param buffer buffer to store the message.
+ * @param bufflen length of the buffer.
+ * @return
+ *      0 if success
+ * ,    -1 Environment not found
+ * ,    -2 Error en snprintf
+ * ,    -3 if msg is NULL
+ * ,    -4 if bufflen is 0.
  **/
-void echo_shell(char* msg, size_t len);
+int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen);
 
 /**
  * @brief solicitar un comando ingresado por el usuario el cual se guardará en una variable command.

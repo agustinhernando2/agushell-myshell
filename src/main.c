@@ -35,7 +35,17 @@ int main(int argc, char* argv[])
     {
         while (get_running())
         {
-            show_prompt(username, hostname);
+            char* prompt = generate_prompt(username, hostname);
+            if (prompt == NULL)
+            {
+                fprintf(stderr, "Error: prompt not generated\n");
+                exit(EXIT_FAILURE);
+            }
+            else
+            {
+                printf("%s", prompt);
+            };
+
             get_command(command);
             exec_command(command);
         }
