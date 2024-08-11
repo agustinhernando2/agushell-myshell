@@ -2,6 +2,8 @@ name: QA Workflow
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
   pull_request:
     # Pull request events
     types: [synchronize, opened, reopened, ready_for_review]

@@ -28,11 +28,20 @@ FetchContent_MakeAvailable(unity)
 # Add header
 include_directories(include)
 
+# Add Unity to the project
+add_library(Unity_test STATIC ${unity_SOURCE_DIR}/src/unity.c)
+target_include_directories(Unity_test PUBLIC ${unity_SOURCE_DIR}/src) # Add the include folder
+
+# Add Library from lib folder
+file(GLOB SOURCES "lib/*.c")
+add_library(lib STATIC ${SOURCES})
+
 # Create the executable
-add_executable(${PROJECT_NAME} src/main.c lib/functions.c)
+add_executable(${PROJECT_NAME} src/main.c )
+target_link_libraries(${PROJECT_NAME} lib)
 
 # Add tests if enabled
-if(RUN_TESTS EQUAL 1 OR RUN_COVERAGE EQUAL 1)
+if(RUNS_TESTS EQUAL 1 OR RUNS_COVERAGE EQUAL 1)
   include(CTest)
   enable_testing()
   add_subdirectory(tests)

@@ -6,14 +6,14 @@ cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 # Include headers project
 # See: https://cmake.org/cmake/help/latest/command/include_directories.html
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
+# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 # Collect tests
 file(GLOB TESTS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.c)
 
 # Files to test
-file(GLOB SRC_FILES 
-${CMAKE_CURRENT_SOURCE_DIR}/../src/functions.c)
+# file(GLOB SRC_FILES 
+# ${CMAKE_CURRENT_SOURCE_DIR}/../src/functions.c)
 
 
 if(RUN_COVERAGE)
@@ -38,10 +38,10 @@ if(RUN_COVERAGE)
     endif()
 
 # Create test executable
-add_executable(test_${PROJECT_NAME} ${TESTS_FILES} ${SRC_FILES})
+add_executable(test_${PROJECT_NAME} ${TESTS_FILES})
 
 # Link with Unity
-target_link_libraries(test_${PROJECT_NAME} Unity_test cJSON)
+target_link_libraries(test_${PROJECT_NAME} Unity_test lib)
 
 # Add test
 add_test(NAME test_${PROJECT_NAME} COMMAND test_${PROJECT_NAME})
