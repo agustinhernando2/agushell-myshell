@@ -16,7 +16,7 @@ char* generate_prompt(char* username, char* hostname)
         return NULL;
     }
 
-    int r = snprintf(buffer, sizeof(buffer), AMARILLO "%s@" GRIS "%s:~%s$" CELESTE ">", username, hostname, pwd);
+    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:~%s$" BLUE ">", username, hostname, pwd);
     if (r < 0 || r >= sizeof(buffer))
     {
         return NULL;
@@ -32,28 +32,42 @@ int get_running()
     return running;
 }
 
-void exec_command(char* command)
+int exec_command(char* command)
 {
     static char buffer[BUFFER_SIZE];
     char* cmd_token = strtok(command, SPACE);
-    
+
     // clear \n if exists
     if (cmd_token[strlen(cmd_token) - 1] == '\n')
     {
         cmd_token[strlen(cmd_token) - 1] = '\0';
-    }   
+    }
 
     if ((strcmp(cmd_token, "clr") == 0) || (strcmp(cmd_token, "clear") == 0))
     {
-        clear_shell();
+        if (clear_shell() == -1)
+        {
+            perror(RED "Error: clear_shell" NORMAL);
+            return -1;
+        }
+        return 0;
     }
     else if ((strcmp(cmd_token, "quit") == 0) || (strcmp(cmd_token, "exit") == 0))
     {
         exit_shell();
+        return 0;
     }
     else if ((strcmp(cmd_token, "cd ") == 0))
     {
-        exchange_directory(get_directory(command));
+        char* dir = get_directory(command);
+        if (dir == NULL)
+        {
+            perror(RED "Error: get_directory" NORMAL);
+            return -1;
+        }
+
+        exchange_directory(dir);
+        return 0;
     }
     else if ((strcmp(cmd_token, "echo") == 0))
     {
@@ -69,34 +83,44 @@ void exec_command(char* command)
         if (r == -1)
         {
             fprintf(stderr, "%s\n", buffer);
+            return -1;
         }
         else if (r == -2)
         {
-            perror(ROJO "Error: snprintf");
+            perror(RED "Error: snprintf" NORMAL);
+            return -1;
         }
         else if (r == -3)
         {
-            perror(ROJO "Error: msg is NULL");
+            perror(RED "Error: msg is NULL" NORMAL);
+            return -1;
         }
         else if (r == -4)
         {
-            perror(ROJO "Error: bufflen is 0");
+            perror(RED "Error: bufflen is 0" NORMAL);
+            return -1;
         }
         else
         {
             printf("%s\n", buffer);
+            return 0;
         }
     }
     else
     {
         extern_command(get_arguments_for_extern_command(command));
+        return 0;
     }
 }
 
-void clear_shell()
+int clear_shell()
 {
-    system("clear");
-    // printf(CLEAR);
+    int r = system("clear");
+    if (r == -1)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 void exit_shell()
@@ -106,46 +130,102 @@ void exit_shell()
 
 char* get_directory(char* command)
 {
+    static char buffer[BUFFER_SIZE];
+
+    if (command == NULL)
+    {
+        return NULL;
+    }
 
     char* token = strtok(command, SPACE);
     if (token != NULL)
     {
         token = strtok(NULL, "\n");
     }
-    char* arg = malloc(500 * sizeof(char));
+
     if (strcmp(token, "-") == 0)
     {
         return token;
     }
+
+    // check if the token is a relative path
     if (strstr(getenv(PWD), token) != NULL)
     {
-        strcat(arg, "/");
-        strcat(arg, token);
+        strcat(buffer, "/");
+        strcat(buffer, token);
     }
+    // check if the token is an absolute path
     else
     {
-        strcat(arg, getenv(PWD));
-        strcat(arg, "/");
-        strcat(arg, token);
+        strcat(buffer, getenv(PWD));
+        strcat(buffer, "/");
+        strcat(buffer, token);
     }
-    return arg;
+    return buffer;
 }
 
-void exchange_directory(char* dir)
+int set_directory(char* command)
 {
-    if (strcmp(dir, "-") == 0)
+    if (chdir(command) != 0)
     {
-        dir = getenv(OLDPWD);
+        perror(RED "Error" NORMAL);
+        return -1;
     }
-    setenv(OLDPWD, pwd, 1);
-    if (chdir(dir) != 0)
+    return 0;
+}
+
+int exchange_directory(char* command)
+{
+    char* old_pwd = NULL;
+    char* new_pwd = NULL;
+
+    // check if dir is "-" to go to the previous directory
+    if (strcmp(command, "-") == 0)
     {
-        perror(ROJO "Error");
+        old_pwd = getenv(OLDPWD);
+        if (old_pwd == NULL)
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+        if(setenv(PWD, old_pwd, 1))
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+        return 0;
+    }
+
+    // the command is a directory, check if it exists
+    if (chdir(command) != 0)
+    {
+        perror(RED "Error" NORMAL);
+        return -1;
     }
     else
     {
-        setenv(PWD, getcwd(pwd, 256), 1);
+        // set the old directory to the current directory
+        if (setenv(OLDPWD, pwd, 1))
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+
+        char* new_pwd = getcwd(pwd, PATH_MAX);
+        if (new_pwd == NULL)
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+
+        // set the current directory to the new directory
+        if (setenv(PWD, new_pwd, 1))
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
     }
+    return 0;
 }
 
 int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
@@ -171,7 +251,7 @@ int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
         }
         else
         {
-            int r = snprintf(buffer, bufflen, ROJO "Environment not found: %s", msg + 1);
+            int r = snprintf(buffer, bufflen, RED "Environment not found: %s" NORMAL, msg + 1);
             if (r < 0 || r >= bufflen)
             {
                 return -2;
@@ -191,8 +271,8 @@ int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
             }
             comment[msglen - 2] = '\0';
 
-            int r = snprintf(buffer, bufflen, "comment: msglen[%ld], commlen[%ld], %s", msglen, strlen(comment),
-                             comment);
+            int r =
+                snprintf(buffer, bufflen, "comment: msglen[%ld], commlen[%ld], %s", msglen, strlen(comment), comment);
             if (r < 0 || r >= bufflen)
             {
                 return -2;
@@ -245,7 +325,7 @@ void extern_command(char* c[])
     switch (pid)
     {
     case -1:
-        perror(ROJO "fork");
+        perror(RED "fork" NORMAL);
         exit(EXIT_FAILURE);
         break;
     case 0:
@@ -255,7 +335,7 @@ void extern_command(char* c[])
         strcat(path, argumentos[0]);
         if (execv(path, argumentos) == -1)
         {
-            perror(ROJO "Error");
+            perror(RED "Error" NORMAL);
         }
         exit(EXIT_SUCCESS);
         break;

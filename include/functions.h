@@ -9,11 +9,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define AMARILLO "\x1b[33m"
-#define GRIS "\x1b[37m"
-#define CELESTE "\x1b[36m"
-#define ROJO "\x1b[31m"
+#define YELLOW "\x1b[33m"
+#define GRAY "\x1b[37m"
+#define BLUE "\x1b[36m"
+#define RED "\x1b[31m"
 #define CLEAR "\033[H\033[J"
+#define NORMAL "\033[0m"
 
 #define CMD_MAX 500
 #define BUFFER_SIZE 1024
@@ -37,12 +38,14 @@ char* generate_prompt(char* username, char* hostname);
 /**
  * @brief execute command in myshell.
  **/
-void exec_command(char* command);
+int exec_command(char* command);
 
 /**
  * @brief clear shell.
+ * @return 0 if success.
+ * @return -1 if error.
  **/
-void clear_shell();
+int clear_shell();
 
 /**
  * @brief exit.
@@ -57,8 +60,11 @@ char* get_directory(char* command);
 
 /**
  * @brief modify the current directory.
+ * @param command directory to change or command.
+ * @return 0 if success.
+ * @return -1 if error.
  **/
-void exchange_directory(char* dir);
+int exchange_directory(char* command);
 
 /**
  * @brief execute echo command. This function will print the message or comment.
