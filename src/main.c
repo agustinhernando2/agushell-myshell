@@ -47,7 +47,13 @@ int main(int argc, char* argv[])
             };
 
             get_command(command);
-            exec_command(command);
+
+            int r = exec_command(command);
+            if (r == -1)
+            {
+                fprintf(stderr, "Error: exec_command\n");
+                exit(EXIT_FAILURE);
+            }
         }
     }
     exit(EXIT_SUCCESS);

@@ -57,16 +57,26 @@ int exec_command(char* command)
         exit_shell();
         return 0;
     }
-    else if ((strcmp(cmd_token, "cd ") == 0))
+    else if ((strcmp(cmd_token, "cd") == 0))
     {
-        char* dir = get_directory(command);
-        if (dir == NULL)
+        char* path = strtok(NULL, "");
+        if (path == NULL)
+        {
+            perror(RED "Error: path is NULL" NORMAL);
+            return 0;
+        }
+        // clear \n if exists
+        if (path[strlen(path) - 1] == '\n')
+        {
+            path[strlen(path) - 1] = '\0';
+        }
+        char* pathto = get_directory(path);
+        if (pathto == NULL)
         {
             perror(RED "Error: get_directory" NORMAL);
-            return -1;
+            return 0;
         }
-
-        exchange_directory(dir);
+        exchange_directory(pathto);
         return 0;
     }
     else if ((strcmp(cmd_token, "echo") == 0))
@@ -128,38 +138,33 @@ void exit_shell()
     running = 0;
 }
 
-char* get_directory(char* command)
+char* get_directory(char* path)
 {
     static char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
 
-    if (command == NULL)
+    if (path == NULL)
     {
         return NULL;
     }
 
-    char* token = strtok(command, SPACE);
-    if (token != NULL)
+    if (strcmp(path, "-") == 0)
     {
-        token = strtok(NULL, "\n");
-    }
-
-    if (strcmp(token, "-") == 0)
-    {
-        return token;
+        return path;
     }
 
     // check if the token is a relative path
-    if (strstr(getenv(PWD), token) != NULL)
+    if (strstr(getenv(PWD), path) != NULL)
     {
         strcat(buffer, "/");
-        strcat(buffer, token);
+        strcat(buffer, path);
     }
     // check if the token is an absolute path
     else
     {
         strcat(buffer, getenv(PWD));
         strcat(buffer, "/");
-        strcat(buffer, token);
+        strcat(buffer, path);
     }
     return buffer;
 }
@@ -174,21 +179,36 @@ int set_directory(char* command)
     return 0;
 }
 
-int exchange_directory(char* command)
+int exchange_directory(char* path)
 {
-    char* old_pwd = NULL;
-    char* new_pwd = NULL;
+    char* old_pwd = getenv(OLDPWD);
+    char* pwd = getenv(PWD);
 
     // check if dir is "-" to go to the previous directory
-    if (strcmp(command, "-") == 0)
+    if (strcmp(path, "-") == 0)
     {
-        old_pwd = getenv(OLDPWD);
         if (old_pwd == NULL)
         {
             perror(RED "Error" NORMAL);
             return -1;
         }
-        if(setenv(PWD, old_pwd, 1))
+        if (setenv(PWD, old_pwd, 1))
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+
+        if (pwd == NULL)
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+        if (setenv(OLDPWD, pwd, 1))
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+        if (chdir(old_pwd) != 0)
         {
             perror(RED "Error" NORMAL);
             return -1;
@@ -197,7 +217,7 @@ int exchange_directory(char* command)
     }
 
     // the command is a directory, check if it exists
-    if (chdir(command) != 0)
+    if (chdir(path) != 0)
     {
         perror(RED "Error" NORMAL);
         return -1;
@@ -230,7 +250,6 @@ int exchange_directory(char* command)
 
 int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
 {
-
     if (msg == NULL)
     {
         return -3;
