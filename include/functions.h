@@ -16,6 +16,7 @@
 #define CLEAR "\033[H\033[J"
 #define NORMAL "\033[0m"
 
+#define PATH_MAX 4096 /* # chars in a path name including nul */
 #define CMD_MAX 500
 #define BUFFER_SIZE 1024
 #define DOLLAR "$"
@@ -51,12 +52,6 @@ int clear_shell();
  * @brief exit.
  **/
 void exit_shell();
-
-/**
- * @brief get current directory.
- * @return current directory from pwd variable.
- **/
-char* get_directory(char* command);
 
 /**
  * @brief modify the current directory.

@@ -15,14 +15,26 @@ char* generate_prompt(char* username, char* hostname)
     {
         return NULL;
     }
+    // if pwd starts with /home/username, replace it with ~
+    // strstr() is to search for a substring within a larger string
+    // and it helps to find the first occurrence of a specified substring.
+    if (strstr(pwd, getenv("HOME")) == pwd)
+    {
+        // extract the substring
+        memmove(pwd, pwd + strlen(getenv("HOME")), 1 + strlen(pwd + strlen(getenv("HOME"))));
+        char* tilde = "~";
+        char* temp = malloc(strlen(tilde) + strlen(pwd) + 1);
+        strcpy(temp, tilde);
+        strcat(temp, pwd);
+        // update the pwd
+        strcpy(pwd, temp);
+    }
 
-    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:~%s$" BLUE ">", username, hostname, pwd);
+    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:%s$" BLUE ">", username, hostname, pwd);
     if (r < 0 || r >= sizeof(buffer))
     {
         return NULL;
     }
-
-    // setenv(PWD, pwd, 1);
 
     return buffer;
 }
@@ -70,13 +82,7 @@ int exec_command(char* command)
         {
             path[strlen(path) - 1] = '\0';
         }
-        char* pathto = get_directory(path);
-        if (pathto == NULL)
-        {
-            perror(RED "Error: get_directory" NORMAL);
-            return 0;
-        }
-        exchange_directory(pathto);
+        exchange_directory(path);
         return 0;
     }
     else if ((strcmp(cmd_token, "echo") == 0))
@@ -138,37 +144,6 @@ void exit_shell()
     running = 0;
 }
 
-char* get_directory(char* path)
-{
-    static char buffer[BUFFER_SIZE];
-    memset(buffer, 0, sizeof(buffer));
-
-    if (path == NULL)
-    {
-        return NULL;
-    }
-
-    if (strcmp(path, "-") == 0)
-    {
-        return path;
-    }
-
-    // check if the token is a relative path
-    if (strstr(getenv(PWD), path) != NULL)
-    {
-        strcat(buffer, "/");
-        strcat(buffer, path);
-    }
-    // check if the token is an absolute path
-    else
-    {
-        strcat(buffer, getenv(PWD));
-        strcat(buffer, "/");
-        strcat(buffer, path);
-    }
-    return buffer;
-}
-
 int set_directory(char* command)
 {
     if (chdir(command) != 0)
@@ -181,70 +156,92 @@ int set_directory(char* command)
 
 int exchange_directory(char* path)
 {
-    char* old_pwd = getenv(OLDPWD);
-    char* pwd = getenv(PWD);
+    char* old_pwd = NULL;
+    char* pwd = NULL;
+    char* temp = NULL;
 
-    // check if dir is "-" to go to the previous directory
-    if (strcmp(path, "-") == 0)
+    if (strcmp(path, "") == 0)
     {
+        // change to home directory
+        if ((chdir(getenv("HOME"))) != 0)
+        {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+    }
+    // check if the path is a directory
+    else if (strcmp(path, "-") != 0)
+    {
+        old_pwd = getcwd(NULL, 0);
         if (old_pwd == NULL)
         {
             perror(RED "Error" NORMAL);
             return -1;
         }
-        if (setenv(PWD, old_pwd, 1))
+        // change to the new directory
+        if (chdir(path) != 0)
         {
+            perror(RED "Error" NORMAL);
+            return -1;
+        }
+        // set the old directory to the current directory
+        if (setenv(OLDPWD, old_pwd, 1) != 0)
+        {
+            free(old_pwd);
             perror(RED "Error" NORMAL);
             return -1;
         }
 
-        if (pwd == NULL)
+        free(old_pwd);
+    }
+    // check the instruction is "-"
+    else if (strcmp(path, "-") == 0)
+    {
+        temp = getenv(OLDPWD);
+        if (temp == NULL)
         {
             perror(RED "Error" NORMAL);
             return -1;
         }
-        if (setenv(OLDPWD, pwd, 1))
+        old_pwd = getenv(PWD);
+        if (old_pwd == NULL)
         {
             perror(RED "Error" NORMAL);
+            free(temp);
             return -1;
         }
-        if (chdir(old_pwd) != 0)
+        // change to the old directory
+        if (chdir(temp) != 0)
         {
             perror(RED "Error" NORMAL);
+            free(temp);
+            return -1;
+        }
+        // set the old directory to the current directory
+        if (setenv(OLDPWD, old_pwd, 1) != 0)
+        {
+            perror(RED "Error" NORMAL);
+            free(temp);
             return -1;
         }
         return 0;
     }
 
-    // the command is a directory, check if it exists
-    if (chdir(path) != 0)
+    pwd = getcwd(NULL, 0);
+    if (pwd == NULL)
     {
         perror(RED "Error" NORMAL);
         return -1;
     }
-    else
+
+    // update the current directory environment variable
+    if (setenv(PWD, pwd, 1) != 0)
     {
-        // set the old directory to the current directory
-        if (setenv(OLDPWD, pwd, 1))
-        {
-            perror(RED "Error" NORMAL);
-            return -1;
-        }
-
-        char* new_pwd = getcwd(pwd, PATH_MAX);
-        if (new_pwd == NULL)
-        {
-            perror(RED "Error" NORMAL);
-            return -1;
-        }
-
-        // set the current directory to the new directory
-        if (setenv(PWD, new_pwd, 1))
-        {
-            perror(RED "Error" NORMAL);
-            return -1;
-        }
+        perror(RED "Error" NORMAL);
+        free(pwd);
+        return -1;
     }
+    free(pwd);
     return 0;
 }
 
