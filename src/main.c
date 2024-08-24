@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../include/functions.h"
+#include "../include/common.h"
 
 void print_banner()
 {
@@ -47,6 +47,11 @@ int main(int argc, char* argv[])
             };
 
             get_command(command);
+            
+            // if the command is empty, continue and ask for another command
+            if(strcmp("\n",command) == 0 || strcmp("",command) == 0 || strlen(command) == 0){
+                continue;
+            }
 
             int r = exec_command(command);
             if (r == -1)

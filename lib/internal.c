@@ -1,10 +1,7 @@
-#include "../include/functions.h"
-
-// Definir las variables
+#include "../include/internal.h"
 
 int running = 1;
 // char *token;
-char* const* argumentos;
 char pwd[PATH_MAX];
 
 char* generate_prompt(char* username, char* hostname)
@@ -44,91 +41,6 @@ int get_running()
     return running;
 }
 
-int exec_command(char* command)
-{
-    static char buffer[BUFFER_SIZE];
-    char* cmd_token = strtok(command, SPACE);
-
-    // clear \n if exists
-    if (cmd_token[strlen(cmd_token) - 1] == '\n')
-    {
-        cmd_token[strlen(cmd_token) - 1] = '\0';
-    }
-
-    if ((strcmp(cmd_token, "clr") == 0) || (strcmp(cmd_token, "clear") == 0))
-    {
-        if (clear_shell() == -1)
-        {
-            perror(RED "Error: clear_shell" NORMAL);
-            return -1;
-        }
-        return 0;
-    }
-    else if ((strcmp(cmd_token, "quit") == 0) || (strcmp(cmd_token, "exit") == 0))
-    {
-        exit_shell();
-        return 0;
-    }
-    else if ((strcmp(cmd_token, "cd") == 0))
-    {
-        char* path = strtok(NULL, "");
-        if (path == NULL)
-        {
-            perror(RED "Error: path is NULL" NORMAL);
-            return 0;
-        }
-        // clear \n if exists
-        if (path[strlen(path) - 1] == '\n')
-        {
-            path[strlen(path) - 1] = '\0';
-        }
-        exchange_directory(path);
-        return 0;
-    }
-    else if ((strcmp(cmd_token, "echo") == 0))
-    {
-        char* msg = strtok(NULL, "");
-
-        // clear \n if exists
-        if (msg[strlen(msg) - 1] == '\n')
-        {
-            msg[strlen(msg) - 1] = '\0';
-        }
-
-        int r = echo_shell(msg, strlen(msg), buffer, sizeof(buffer));
-        if (r == -1)
-        {
-            fprintf(stderr, "%s\n", buffer);
-            return -1;
-        }
-        else if (r == -2)
-        {
-            perror(RED "Error: snprintf" NORMAL);
-            return -1;
-        }
-        else if (r == -3)
-        {
-            perror(RED "Error: msg is NULL" NORMAL);
-            return -1;
-        }
-        else if (r == -4)
-        {
-            perror(RED "Error: bufflen is 0" NORMAL);
-            return -1;
-        }
-        else
-        {
-            printf("%s\n", buffer);
-            return 0;
-        }
-    }
-    else
-    {
-        extern_command(get_arguments_for_extern_command(command));
-        return 0;
-    }
-}
-
 int clear_shell()
 {
     int r = system("clear");
@@ -142,16 +54,6 @@ int clear_shell()
 void exit_shell()
 {
     running = 0;
-}
-
-int set_directory(char* command)
-{
-    if (chdir(command) != 0)
-    {
-        perror(RED "Error" NORMAL);
-        return -1;
-    }
-    return 0;
 }
 
 int exchange_directory(char* path)
@@ -306,57 +208,4 @@ int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen)
 void get_command(char* command)
 {
     fgets(command, CMD_MAX, stdin);
-}
-
-char** get_arguments_for_extern_command(char* command)
-{
-    char** arg = malloc(50 * sizeof(char*));
-    int index = 0;
-
-    char* token = strtok(command, "\n");
-    arg[index] = strdup(token);
-    token = strtok(arg[index], " ");
-    if (token != NULL)
-    {
-        arg[index] = strdup(token);
-    }
-    else
-    {
-        arg[index + 1] = NULL;
-        return arg;
-    }
-    index++;
-    while (token && (token = strtok(NULL, " ")))
-    {
-        arg[index] = strdup(token);
-        index++;
-    }
-    arg[index] = NULL;
-    return arg;
-}
-
-void extern_command(char* c[])
-{
-    pid_t pid = fork();
-    switch (pid)
-    {
-    case -1:
-        perror(RED "fork" NORMAL);
-        exit(EXIT_FAILURE);
-        break;
-    case 0:
-        argumentos = c;
-        char* path = malloc(100 * sizeof(char));
-        strcat(path, "/bin/");
-        strcat(path, argumentos[0]);
-        if (execv(path, argumentos) == -1)
-        {
-            perror(RED "Error" NORMAL);
-        }
-        exit(EXIT_SUCCESS);
-        break;
-    default:
-        wait(0);
-        break;
-    }
 }

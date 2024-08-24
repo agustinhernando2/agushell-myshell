@@ -1,29 +1,8 @@
-// include/functions.h
-#ifndef FUNCTIONS_H
-#define FUNCTIONS_H
+// include/internal.h
+#ifndef INTERNAL_H
+#define INTERNAL_H
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-#define YELLOW "\x1b[33m"
-#define GRAY "\x1b[37m"
-#define BLUE "\x1b[36m"
-#define RED "\x1b[31m"
-#define CLEAR "\033[H\033[J"
-#define NORMAL "\033[0m"
-
-#define PATH_MAX 4096 /* # chars in a path name including nul */
-#define CMD_MAX 500
-#define BUFFER_SIZE 1024
-#define DOLLAR "$"
-#define SPACE " "
-#define PWD "PWD"
-#define USER "USER"
-#define OLDPWD "OLDPWD"
+#include "common.h"
 
 /**
  * @brief get running status.
@@ -35,11 +14,6 @@ int get_running();
  * @brief generate prompt.
  **/
 char* generate_prompt(char* username, char* hostname);
-
-/**
- * @brief execute command in myshell.
- **/
-int exec_command(char* command);
 
 /**
  * @brief clear shell.
@@ -81,15 +55,4 @@ int echo_shell(char* msg, size_t msglen, char* buffer, size_t bufflen);
  **/
 void get_command(char* command);
 
-/**
- * @brief obtiene los argumentos para el comando externo.
- * @return argumentos
- * */
-char** get_arguments_for_extern_command(char* command);
-
-/**
- * @brief ejecuta el comando en caso con system como ultima alternativa.
- **/
-void extern_command(char* c[]);
-
-#endif // FUNCTIONS_H
+#endif // INTERNAL_H
