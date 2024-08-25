@@ -1,39 +1,112 @@
 #include "../include/external.h"
+#include "external.h"
 
 int jobid = 1;
 pid_t child_pid = 0;
 
-char** get_arguments_for_extern_command(char* command)
-{
-    char** arg = malloc(50 * sizeof(char*));
-    int index = 0;
-
-    char* token = strtok(command, "\n");
-    arg[index] = strdup(token);
-    token = strtok(arg[index], " ");
-    if (token != NULL)
-    {
-        arg[index] = strdup(token);
-    }
-    else
-    {
-        arg[index + 1] = NULL;
-        return arg;
-    }
-    index++;
-    while (token && (token = strtok(NULL, " ")))
-    {
-        arg[index] = strdup(token);
-        index++;
-    }
-    arg[index] = NULL;
-    return arg;
-}
-
+// extern command, aca se interpreta si hay pipes en el input
 void extern_command(char* input)
 {
+    int8_t is_background = 0;
+    // get amount of pipes that the input has
+    int pipes = 0;
 
+    for (int i = 0; i < strlen(input); i++)
+    {
+        if (input[i] == '|')
+        {
+            pipes++;
+        }
+    }
+    // alloc memory for the pipes
+    int* pipe_array = (int*)malloc((pipes + 1) * 2 * sizeof(int));
+    if (pipe_array == NULL)
+    {
+        perror(RED "Error" NORMAL);
+        exit(EXIT_FAILURE);
+    }
+
+    // create pipes
+    for (int i = 0; i < (pipes + 1); i++)
+    {
+        if (pipe(pipe_array + i * 2) == -1)
+        {
+            perror(RED "Error" NORMAL);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // make a copy of the input
+    char* program = strdup(input);
+
+    char* token = strtok(program, "|");
+
+    int flag = 0;
+    for (size_t i = 0; i < (pipes + 1); i++)
+    {
+        int pid = fork();
+        if (pid < 0)
+        {
+            perror(RED "Error" NORMAL);
+            exit(EXIT_FAILURE);
+        }
+        else if (pid == 0)
+        {
+            // child process
+
+            // check if the command should be executed in the background
+            // if the last character is &, the command should be executed in the background
+            if (input[strlen(input) - 1] == '&')
+            {
+                is_background = 1;
+                input[strlen(input) - 1] = '\0';
+            }
+
+            // remove the last character if it is a newline or space
+            if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
+            {
+                input[strlen(input) - 1] = '\0';
+            }
+
+            process_command(token, is_background);
+
+            // if execvp is successful, this code will not be reached
+
+            perror(RED "An error occurred in execution,the path is incorrect or some argument is invalid" NORMAL);
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+            // parent process
+            child_pid = pid;
+        }
+
+        if (!is_background)
+        {
+            // wait for the child process to finish
+            // waitpid(pid, NULL, 0);
+            pause();
+        }
+        printf("[%d]%d\n", jobid, child_pid);
+
+        token = strtok(NULL, "|");
+        if (token == NULL)
+        {
+            break;
+        }
+    }
+}
+
+// process_command, aca se interpreta si hay redirecciones en el input
+void process_command(char* input, int8_t is_background)
+{
     char *token = NULL, *redirectin = NULL, *redirectout = NULL;
+
+    // remove the last character if it is a newline or space
+    if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
+    {
+        input[strlen(input) - 1] = '\0';
+    }
 
     char* program = strdup(input);
 
@@ -55,8 +128,6 @@ void extern_command(char* input)
             return;
         }
 
-        // " a.out"
-
         if (strchr(input, '<') != NULL)
         {
             // get file name after < and > if it exists
@@ -71,13 +142,73 @@ void extern_command(char* input)
             redirectout = strdup(token);
         }
 
+        set_redirect(redirectin, "r", stdin);
+        set_redirect(redirectout, "w", stdout);
         // execute the command
-        execute_command(program, redirectin, redirectout);
+        execute_binary(program, is_background);
     }
     else
     {
         // execute the command without redirection
-        execute_command(input, NULL, NULL);
+        execute_binary(input, is_background);
+    }
+}
+// execute_binary, aca se ejecuta el comando binario
+void execute_binary(char* program, int8_t is_background)
+{
+    // remove the last character if it is a newline or space
+    if (program[strlen(program) - 1] == '\n' || program[strlen(program) - 1] == ' ')
+    {
+        program[strlen(program) - 1] = '\0';
+    }
+
+    if (is_background)
+    {
+        // ignore signals in the child process
+        signal(SIGCHLD, SIG_IGN);
+        signal(SIGTSTP, SIG_IGN);
+        signal(SIGQUIT, SIG_IGN);
+        signal(SIGINT, SIG_IGN);
+
+        // redirect stdout and stderr to /dev/null
+        freopen("/dev/null", "w", stdout);
+        freopen("/dev/null", "w", stderr);
+    }
+
+    char* args[MAX_ARGS];
+    parse_input(program, args);
+    /**
+     * Las funciones execlp y execvp duplicarán las acciones del shell al buscar un
+     * fichero ejecutable si el nombre de fichero especificado no contiene un carácter
+     * de barra inclinada (/). El camino de búsqueda es el especificado en el entorno
+     * por la variable PATH. Si esta variable no es especificada, se emplea el camino
+     * predeterminado ``:/bin:/usr/bin''. Además, ciertos errores se tratan de forma especial.
+     */
+
+    // execl no busca en PATH
+    // if (execl(args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9],
+    // args[10], NULL) < 0) {
+    //     perror("execl failed");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    if (execvp(args[0], args) < 0)
+    {
+        // Error al ejecutar el comando
+        perror(RED "execvp failed" NORMAL);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void set_redirect(char* redirectin, char* c, FILE* stream)
+{
+    if (redirectin != NULL)
+    {
+        // redirect stdin
+        if (freopen(redirectin, c, stream) == NULL)
+        {
+            perror(RED "Error redirecting stdin" NORMAL);
+        }
     }
 }
 
@@ -90,23 +221,6 @@ char* parse_token(char* input, const char* delimiter)
         return strdup(token);
     }
     return NULL;
-}
-
-void execute_command(char* program, char* redirectin, char* redirectout)
-{
-    if (strchr(program, '|') != NULL)
-    {
-        execute_pipes(program, redirectin, redirectout);
-    }
-    else
-    {
-        execute_binary(program, redirectin, redirectout);
-    }
-}
-
-void execute_pipes(char input[], char* redirectin, char* redirectout)
-{
-    return;
 }
 
 void handle_redirections(char* token, char** redirectin, char** redirectout)
@@ -131,115 +245,6 @@ void handle_redirections(char* token, char** redirectin, char** redirectout)
     }
 }
 
-void execute_binary(char* input, char* redirectin, char* redirectout)
-{
-    signal(SIGCHLD, handler);
-    signal(SIGTSTP, handler);
-    signal(SIGQUIT, handler);
-    signal(SIGINT, handler);
-
-    // remove the last character if it is a newline or space
-    if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
-    {
-        input[strlen(input) - 1] = '\0';
-    }
-
-    // check if the command should be executed in the background
-    // if the last character is &, the command should be executed in the background
-    int8_t is_background = 0;
-    if (input[strlen(input) - 1] == '&')
-    {
-        is_background = 1;
-        input[strlen(input) - 1] = '\0';
-    }
-
-    // remove the last character if it is a newline or space
-    if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
-    {
-        input[strlen(input) - 1] = '\0';
-    }
-
-    int pid = fork();
-    if (pid < 0)
-    {
-        perror(RED "Error" NORMAL);
-        exit(EXIT_FAILURE);
-    }
-    else if (pid == 0)
-    {
-        // child process
-        if (redirectin != NULL)
-        {
-            // redirect stdin
-            if (freopen(redirectin, "r", stdin) == NULL)
-            {
-                perror(RED "Error redirecting stdin" NORMAL);
-            }
-        }
-        if (redirectout != NULL)
-        {
-            // redirect stdout
-            if (freopen(redirectout, "w", stdout) == NULL)
-            {
-                perror(RED "Error redirecting stdout" NORMAL);
-            }
-        }
-
-        if (is_background)
-        {
-            // ignore signals in the child process
-            signal(SIGCHLD, SIG_IGN);
-            signal(SIGTSTP, SIG_IGN);
-            signal(SIGQUIT, SIG_IGN);
-            signal(SIGINT, SIG_IGN);
-
-            // redirect stdout and stderr to /dev/null
-            freopen("/dev/null", "w", stdout);
-            freopen("/dev/null", "w", stderr);
-        }
-
-        char* args[MAX_ARGS];
-        parse_input(input, args);
-        /**
-         * Las funciones execlp y execvp duplicarán las acciones del shell al buscar un
-         * fichero ejecutable si el nombre de fichero especificado no contiene un carácter
-         * de barra inclinada (/). El camino de búsqueda es el especificado en el entorno
-         * por la variable PATH. Si esta variable no es especificada, se emplea el camino
-         * predeterminado ``:/bin:/usr/bin''. Además, ciertos errores se tratan de forma especial.
-         */
-
-        // execl no busca en PATH
-        // if (execl(args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9],
-        // args[10], NULL) < 0) {
-        //     perror("execl failed");
-        //     exit(EXIT_FAILURE);
-        // }
-
-        if (execvp(args[0], args) < 0)
-        {
-            // Error al ejecutar el comando
-            perror(RED "execvp failed" NORMAL);
-            exit(EXIT_FAILURE);
-        }
-        // if execvp is successful, this code will not be reached
-        perror(RED "An error occurred in execution,the path is incorrect or some argument is invalid" NORMAL);
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        // parent process
-        child_pid = pid;
-    }
-
-    if (!is_background)
-    {
-        // wait for the child process to finish
-        // waitpid(pid, NULL, 0);
-        pause();
-    }
-    printf("[%d]%d\n", jobid, child_pid);
-}
-
 void parse_input(char* input, char** args)
 {
     for (int i = 0; i < MAX_ARGS; i++)
@@ -256,7 +261,11 @@ void handler(int signum)
     switch (signum)
     {
     case SIGCHLD:
-        // signal received when a child process changes state
+        // Signal received when a child process changes state (e.g., exits)
+        // -1: Wait for any child process
+        // WNOHANG: Return immediately if no child process has exited
+        // This wait is needed to avoid zombie processes by collecting
+        // the exit status of the child process
         waitpid(-1, 0, WNOHANG);
         jobid++;
         break;
@@ -265,7 +274,8 @@ void handler(int signum)
         if (child_pid > 0)
         {
             signal(SIGINT, SIG_IGN);
-            printf("\n");
+            printf("\nSIGINT sended to [%d]\n", child_pid);
+            sleep(1);
             kill(child_pid, SIGINT);
         }
         break;
@@ -274,7 +284,8 @@ void handler(int signum)
         if (child_pid > 0)
         {
             signal(SIGTSTP, SIG_IGN);
-            printf("\nSTOP[%d]\n", child_pid);
+            printf("\nSIGTSTP sended to [%d]\n", child_pid);
+            sleep(1);
             kill(child_pid, SIGTSTP);
         }
         break;
@@ -283,7 +294,8 @@ void handler(int signum)
         if (child_pid > 0)
         {
             signal(SIGQUIT, SIG_IGN);
-            printf("\n");
+            printf("\nSIGQUIT sended to [%d]\n", child_pid);
+            sleep(1);
             kill(child_pid, SIGQUIT);
         }
         break;

@@ -15,6 +15,13 @@ void print_banner()
 
 int main(int argc, char* argv[])
 {
+
+    // default signal handling
+    signal(SIGCHLD, handler);
+    signal(SIGTSTP, handler);
+    signal(SIGQUIT, handler);
+    signal(SIGINT, handler);
+
     char* username = getenv(USER);
     if (username == NULL)
     {

@@ -5,19 +5,9 @@
 #include "common.h"
 
 /**
- * @brief obtiene los argumentos para el comando externo.
- * @return argumentos
- * */
-char** get_arguments_for_extern_command(char* command);
-
-/**
  * @brief ejecuta el comando en caso con system como ultima alternativa.
  **/
 void extern_command(char* input);
-
-void execute_binary(char* input, char* redirectin, char* redirectout);
-
-void execute_pipes(char input[], char* redirectin, char* redirectout);
 
 /**
  * @brief Handles signals received by the program.
@@ -39,6 +29,11 @@ void handler(int signum);
 void parse_input(char* input, char** args);
 
 char* parse_token(char* input, const char* delimiter);
-void execute_command(char* program, char* redirectin, char* redirectout);
+
+void process_command(char* input, int8_t is_background);
+void execute_binary(char* program, int8_t is_background);
+void set_redirect(char* redirectin, char* c, FILE* stream);
+
 void handle_redirections(char* token, char** redirectin, char** redirectout);
+void exec(char* redirectin, char* redirectout, int8_t is_background, char* input);
 #endif // EXTERNAL_H
