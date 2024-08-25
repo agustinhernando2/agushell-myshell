@@ -33,175 +33,102 @@ char** get_arguments_for_extern_command(char* command)
 void extern_command(char* input)
 {
 
-    if (strchr(input, '<') != NULL && strchr(input, '>') != NULL)
+    char *token = NULL, *redirectin = NULL, *redirectout = NULL;
+
+    char* program = strdup(input);
+
+    // buscar la primera ocurrencia de < o >, obtener el caracter
+    // si el caracter es <, obtener el nombre del archivo y guardar en redirectin
+    // si el caracter es >, obtener el nombre del archivo y guardar en redirectout
+    // si la primer ocurrencia fue <, buscar la siguiente ocurrencia de >
+    // y obtener el nombre del archivo y guardar en redirectout
+
+    if (strchr(input, '<') != NULL || strchr(input, '>') != NULL)
     {
-        char* token = strtok(input, "<");
-        int counter = 0;
-        char* program = NULL;
-        char* redirectin = NULL;
-        char* redirectout = NULL;
-        while (token != NULL)
-        {
-            if (counter == 0)
-            {
-                program = (char*)malloc(sizeof(token));
-                strcpy(program, token);
-            }
-            else if (counter == 1)
-            {
-                int counter2 = 0;
-                char* token2 = strtok(token, ">");
-                while (token2 != NULL)
-                {
-                    remove_spaces(token2);
-                    if (counter2 == 0)
-                    {
-                        redirectin = (char*)malloc(sizeof(token2));
-                        strcpy(redirectin, token2);
-                    }
-                    else if (counter2 == 1)
-                    {
-                        redirectout = (char*)malloc(sizeof(token2));
-                        strcpy(redirectout, token2);
-                    }
-                    token2 = strtok(NULL, ">");
-                    counter2++;
-                }
-                free(token2);
-            }
-            token = strtok(NULL, "<");
-            counter++;
-        }
-        free(token);
-        if (program == NULL)
+        // find the first occurrence of < or >
+        // ex: ls > a.out -> ls /0 a.out
+        // ex: cat < a.out -> cat /0 a.out
+        token = parse_token(program, "<>");
+        if (token == NULL)
         {
             fprintf(stderr, "Error, comando invalido\n");
+            return;
+        }
+
+        // " a.out"
+
+        if (strchr(input, '<') != NULL)
+        {
+            // get file name after < and > if it exists
+            token = strtok(NULL, "<");
+            handle_redirections(token, &redirectin, &redirectout);
         }
         else
         {
-            if (strchr(program, '|') != NULL)
-            {
-                execute_pipes(program, redirectin, redirectout);
-            }
-            else
-            {
-                execute_binary(program, redirectin, redirectout);
-            }
-        }
-        free(program);
-        free(redirectin);
-        free(redirectout);
-    }
-    else if (strchr(input, '<') != NULL)
-    {
-        int c = 0;
-        char* token = strtok(input, "<");
-        char* program = NULL;
-        char* redirectin = NULL;
-        while (token != NULL)
-        {
-            if (c == 0)
-            {
-                program = (char*)malloc(sizeof(token));
-                strcpy(program, token);
-            }
-            else if (c == 1)
-            {
-                remove_spaces(token);
-                redirectin = (char*)malloc(sizeof(token));
-                strcpy(redirectin, token);
-            }
-            else
-            {
-                fprintf(stderr, "Error, invalid command\n");
-            }
-
-            token = strtok(NULL, "<");
-            c++;
-        }
-        free(token);
-        if (program == NULL)
-        {
-            fprintf(stderr, "Error, comando invalido\n");
-        }
-        else
-        {
-            if (strchr(program, '|') != NULL)
-            {
-                execute_pipes(program, redirectin, NULL);
-            }
-            else
-            {
-                execute_binary(program, redirectin, NULL);
-            }
-        }
-        free(program);
-        free(redirectin);
-    }
-    else if (strchr(input, '>') != NULL)
-    {
-        int c = 0;
-        char* token = strtok(input, ">");
-        char* program = NULL;
-        char* redirectout = NULL;
-        while (token != NULL)
-        {
-            if (c == 0)
-            {
-                program = (char*)malloc(sizeof(token));
-                strcpy(program, token);
-            }
-            else if (c == 1)
-            {
-                remove_spaces(token);
-                redirectout = (char*)malloc(sizeof(token));
-                strcpy(redirectout, token);
-            }
-            else
-            {
-                fprintf(stderr, "Error, invalid command\n");
-            }
-
+            // get file name after >
             token = strtok(NULL, ">");
-            c++;
+            remove_spaces(token);
+            redirectout = strdup(token);
         }
 
-        free(token);
-        if (program == NULL)
-        {
-            fprintf(stderr, "Error, comando invalido\n");
-        }
-        else
-        {
-            if (strchr(program, '|') != NULL)
-            {
-                execute_pipes(program, NULL, redirectout);
-            }
-            else
-            {
-                execute_binary(program, NULL, redirectout);
-            }
-        }
-
-        free(program);
-        free(redirectout);
+        // execute the command
+        execute_command(program, redirectin, redirectout);
     }
     else
     {
-        if (strchr(input, '|') != NULL)
-        {
-            execute_pipes(input, NULL, NULL);
-        }
-        else
-        {
-            execute_binary(input, NULL, NULL);
-        }
-    }clear
+        // execute the command without redirection
+        execute_command(input, NULL, NULL);
+    }
+}
+
+char* parse_token(char* input, const char* delimiter)
+{
+    char* token = strtok(input, delimiter);
+    if (token != NULL)
+    {
+        // return a copy of the token
+        return strdup(token);
+    }
+    return NULL;
+}
+
+void execute_command(char* program, char* redirectin, char* redirectout)
+{
+    if (strchr(program, '|') != NULL)
+    {
+        execute_pipes(program, redirectin, redirectout);
+    }
+    else
+    {
+        execute_binary(program, redirectin, redirectout);
+    }
 }
 
 void execute_pipes(char input[], char* redirectin, char* redirectout)
 {
     return;
+}
+
+void handle_redirections(char* token, char** redirectin, char** redirectout)
+{
+    int counter = 0;
+    char* token2;
+
+    token2 = strtok(token, ">");
+    while (token2 != NULL)
+    {
+        remove_spaces(token2);
+        if (counter == 0)
+        {
+            *redirectin = strdup(token2);
+        }
+        else if (counter == 1)
+        {
+            *redirectout = strdup(token2);
+        }
+        token2 = strtok(NULL, ">");
+        counter++;
+    }
 }
 
 void execute_binary(char* input, char* redirectin, char* redirectout)
@@ -211,12 +138,24 @@ void execute_binary(char* input, char* redirectin, char* redirectout)
     signal(SIGQUIT, handler);
     signal(SIGINT, handler);
 
+    // remove the last character if it is a newline or space
+    if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
+    {
+        input[strlen(input) - 1] = '\0';
+    }
+
     // check if the command should be executed in the background
     // if the last character is &, the command should be executed in the background
     int8_t is_background = 0;
     if (input[strlen(input) - 1] == '&')
     {
         is_background = 1;
+        input[strlen(input) - 1] = '\0';
+    }
+
+    // remove the last character if it is a newline or space
+    if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
+    {
         input[strlen(input) - 1] = '\0';
     }
 
@@ -244,6 +183,19 @@ void execute_binary(char* input, char* redirectin, char* redirectout)
             {
                 perror(RED "Error redirecting stdout" NORMAL);
             }
+        }
+
+        if (is_background)
+        {
+            // ignore signals in the child process
+            signal(SIGCHLD, SIG_IGN);
+            signal(SIGTSTP, SIG_IGN);
+            signal(SIGQUIT, SIG_IGN);
+            signal(SIGINT, SIG_IGN);
+
+            // redirect stdout and stderr to /dev/null
+            freopen("/dev/null", "w", stdout);
+            freopen("/dev/null", "w", stderr);
         }
 
         char* args[MAX_ARGS];
@@ -275,6 +227,7 @@ void execute_binary(char* input, char* redirectin, char* redirectout)
     }
     else
     {
+        // parent process
         child_pid = pid;
     }
 

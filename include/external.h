@@ -37,4 +37,8 @@ void handler(int signum);
  * The last element is NULL.
  */
 void parse_input(char* input, char** args);
+
+char* parse_token(char* input, const char* delimiter);
+void execute_command(char* program, char* redirectin, char* redirectout);
+void handle_redirections(char* token, char** redirectin, char** redirectout);
 #endif // EXTERNAL_H
