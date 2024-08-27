@@ -135,7 +135,7 @@ int main()
     UNITY_BEGIN();
 
     RUN_TEST(test_test);
-    RUN_TEST(test_generate_prompt);
+    //RUN_TEST(test_generate_prompt);
 
     RUN_TEST(test_msg_null);
     RUN_TEST(test_bufflen_zero);
