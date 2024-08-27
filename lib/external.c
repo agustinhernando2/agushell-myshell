@@ -9,27 +9,20 @@ void extern_command(char* input)
 {
     int8_t is_background = 0;
     // get amount of pipes that the input has
-    int pipes = 0;
+    int processes = 0;
+    int pipe_arr[10][2];
 
     for (int i = 0; i < strlen(input); i++)
     {
         if (input[i] == '|')
         {
-            pipes++;
+            processes++;
         }
     }
-    // alloc memory for the pipes
-    int* pipe_array = (int*)malloc((pipes + 1) * 2 * sizeof(int));
-    if (pipe_array == NULL)
-    {
-        perror(RED "Error" NORMAL);
-        exit(EXIT_FAILURE);
-    }
-
     // create pipes
-    for (int i = 0; i < (pipes + 1); i++)
+    for (int i = 0; i < processes; i++)
     {
-        if (pipe(pipe_array + i * 2) == -1)
+        if (pipe(pipe_arr[i]) == -1)
         {
             perror(RED "Error" NORMAL);
             exit(EXIT_FAILURE);
@@ -41,9 +34,17 @@ void extern_command(char* input)
 
     char* token = strtok(program, "|");
 
-    int flag = 0;
-    for (size_t i = 0; i < (pipes + 1); i++)
+    for (size_t i = 0; i < processes + 1; i++)
     {
+        remove_beginning_spaces(token);
+        // check if the command should be executed in the background
+        // if the last character is &, the command should be executed in the background
+        if (token[strlen(token) - 1] == '&')
+        {
+            is_background = 1;
+            token[strlen(token) - 1] = '\0';
+        }
+
         int pid = fork();
         if (pid < 0)
         {
@@ -54,50 +55,102 @@ void extern_command(char* input)
         {
             // child process
 
-            // check if the command should be executed in the background
-            // if the last character is &, the command should be executed in the background
-            if (input[strlen(input) - 1] == '&')
+            // redirect stdin to pipe[0]
+            if (i > 0)
             {
-                is_background = 1;
-                input[strlen(input) - 1] = '\0';
+                // read descriptor
+                if (pipe_arr[i - 1][0] != STDIN_FILENO)
+                {
+                    if (dup2(pipe_arr[i - 1][0], STDIN_FILENO) == -1)
+                    {
+                        perror(RED "Error" NORMAL);
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+
+            // redirect stdout to pipe[1]
+            if (i < processes)
+            {
+                // write descriptor
+                if (pipe_arr[i][1] != STDOUT_FILENO)
+                {
+                    if (dup2(pipe_arr[i][1], STDOUT_FILENO) == -1)
+                    {
+                        perror(RED "Error" NORMAL);
+                        exit(EXIT_FAILURE);
+                    }
+                }
             }
 
             // remove the last character if it is a newline or space
-            if (input[strlen(input) - 1] == '\n' || input[strlen(input) - 1] == ' ')
+            if (token[strlen(token) - 1] == '\n' || token[strlen(token) - 1] == ' ')
             {
-                input[strlen(input) - 1] = '\0';
+                token[strlen(token) - 1] = '\0';
+            }
+
+            /**
+             * Cerrar los pipes en el hijo una vez que se han duplicado es importante porque si no se cierran
+             * el hijo no sabrá cuándo se ha cerrado el extremo de escritura del pipe
+             * y no podrá detectar el final del archivo. Esto asegura que el pipe funcione
+             * correctamente sin descriptores adicionales que puedan interferir con la comunicación.
+             */
+            for (int j = 0; j < processes; j++)
+            {
+                if (close(pipe_arr[j][0]) == -1)
+                {
+                    perror(RED "Error" NORMAL);
+                    exit(EXIT_FAILURE);
+                }
+                if (close(pipe_arr[j][1]) == -1)
+                {
+                    perror(RED "Error" NORMAL);
+                    exit(EXIT_FAILURE);
+                }
             }
 
             process_command(token, is_background);
 
             // if execvp is successful, this code will not be reached
 
-            perror(RED "An error occurred in execution,the path is incorrect or some argument is invalid" NORMAL);
+            perror(RED "Error executing command" NORMAL);
             exit(EXIT_FAILURE);
         }
         else
         {
             // parent process
             child_pid = pid;
-        }
 
-        if (!is_background)
-        {
-            // wait for the child process to finish
-            // waitpid(pid, NULL, 0);
-            pause();
-        }
-        printf("[%d]%d\n", jobid, child_pid);
+            if (is_background)
+            {
+                printf("[%d]%d\n", jobid, child_pid);
+            }
 
-        token = strtok(NULL, "|");
-        if (token == NULL)
-        {
-            break;
+            token = strtok(NULL, "|");
+            if (token == NULL)
+            {
+                break;
+            }
         }
+    }
+    // Se cierran los extremos de los pipes del padre ya que no son necesarios
+    for (int i = 0; i < processes; i++)
+    {
+        if (close(pipe_arr[i][0]) == -1)
+            exit(1);
+        if (close(pipe_arr[i][1]) == -1)
+            exit(1);
+    }
+
+    if (!is_background)
+    {
+        // wait for the child process to finish
+        // waitpid(pid, NULL, 0);
+        while (wait(NULL) > 0)
+            ;
     }
 }
 
-// process_command, aca se interpreta si hay redirecciones en el input
 void process_command(char* input, int8_t is_background)
 {
     char *token = NULL, *redirectin = NULL, *redirectout = NULL;
@@ -186,8 +239,14 @@ void execute_binary(char* program, int8_t is_background)
      */
 
     // execl no busca en PATH
-    // if (execl(args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9],
-    // args[10], NULL) < 0) {
+    // concateno /bin/ al comando para que busque en /bin
+    // char* path = (char*)malloc(strlen(args[0]) + 6);
+    // strcat(path, "/bin/");
+    // strcat(path, args[0]);
+    // if (execl(path, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9],
+    // args[10],
+    //           NULL) < 0)
+    // {
     //     perror("execl failed");
     //     exit(EXIT_FAILURE);
     // }
@@ -249,6 +308,7 @@ void parse_input(char* input, char** args)
 {
     for (int i = 0; i < MAX_ARGS; i++)
     {
+        // split the input by spaces
         args[i] = strsep(&input, " ");
         if (args[i] == NULL)
             break;
@@ -287,6 +347,7 @@ void handler(int signum)
             printf("\nSIGTSTP sended to [%d]\n", child_pid);
             sleep(1);
             kill(child_pid, SIGTSTP);
+            exit(EXIT_SUCCESS);
         }
         break;
     case SIGQUIT:
@@ -297,6 +358,7 @@ void handler(int signum)
             printf("\nSIGQUIT sended to [%d]\n", child_pid);
             sleep(1);
             kill(child_pid, SIGQUIT);
+            exit(EXIT_SUCCESS);
         }
         break;
     }

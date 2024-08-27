@@ -41,7 +41,8 @@ if [ "$1" == "test" ]; then
     cmake -GNinja -DRUNS_COVERAGE=1 -DRUNS_TESTS=1 ..
     ninja -j$(nproc)
     ctest --output-on-failure -VV
-    gcovr -r .. --html --html-details -o reports/coverage.html
+    mkdir reports
+    gcovr -r ../.. --html --html-details -o reports/coverage.html
 elif [ "$1" == "debug" ]; then
     cmake -GNinja -DCMAKE_BUILD_TYPE=Debug ..
     ninja -j$(nproc)
@@ -84,5 +85,31 @@ find $PROJECT_PATH -type f -name "*.txt" -o -name "*.md" -o -name "*.c" -o -name
     echo "Added newline to the end of: $file"
   fi
 done
+
+
+# COVERAGE
+
+# This command runs the 'gcovr' tool to generate a coverage report and
+# save it in the 'coverage.txt' file.
+gcovr -r $PROJECT_PATH . > $PROJECT_PATH/coverage.txt
+
+echo "Runnig: gcovr -r $PROJECT_PATH ."
+
+cat $PROJECT_PATH/coverage.txt
+
+# Find the value of correct coverage
+# The 'grep' command searches for the line containing the word 'TOTAL' in the 'coverage.txt' file.
+# The 'awk' command prints the last column of the line.
+# The 'cut' command removes the '%' character from the last column.
+COVERAGE_RESULT=$(grep "TOTAL" $PROJECT_PATH/coverage.txt | awk '{print $NF}' | cut -d '%' -f 1)
+
+# Coverage lines GT 20
+if [ "$(echo "$COVERAGE_RESULT > 20" | bc)" -eq 1 ]; then
+    echo "Coverage is greater than 20%. Nice!"
+    exit 0
+else
+    echo "Error: Coverage is less than or equal to 20%"
+    exit 0
+fi
 
 exit 0

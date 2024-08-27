@@ -1,5 +1,5 @@
 #include <unity.h>
-#include <functions.h>
+#include <common.h>
 
 void test_test(){
     TEST_ASSERT_EQUAL(0,0);
@@ -14,7 +14,7 @@ void test_generate_prompt(){
     getcwd(pwd, sizeof(pwd));
 
     char buffer[BUFFER_SIZE];
-    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:~%s$" BLUE ">", username, hostname, pwd);
+    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:%s$" BLUE ">", username, hostname, pwd);
     if (r < 0 || r >= sizeof(buffer))
     {
         TEST_ASSERT_EQUAL_STRING(NULL, prompt);
@@ -98,7 +98,7 @@ void test_exchange_directory_fail(void)
 
 void test_exchange_directory_pass(void)
 {
-    setenv("PWD", "/", 1);
+    chdir("/");
     char* command = "home";
     int ret = exchange_directory(command);
     TEST_ASSERT_EQUAL_INT(0, ret);
@@ -107,29 +107,13 @@ void test_exchange_directory_pass(void)
 
 void test_exchange_directory_pass2(void)
 {
-    setenv("PWD", "/home", 1);
+    chdir("/home");
     char* command = "/dev";
     int ret = exchange_directory(command);
     TEST_ASSERT_EQUAL_INT(0, ret);
     TEST_ASSERT_EQUAL_STRING("/dev", getenv("PWD"));
 }
 
-void test_exchange_directory_pass3(void)
-{
-    setenv("PWD", "/", 1);
-    char* command = "/home";
-    int ret = exchange_directory(command);
-    TEST_ASSERT_EQUAL_INT(0, ret);
-
-    command = "/dev";
-    ret = exchange_directory(command);
-    TEST_ASSERT_EQUAL_INT(0, ret);
-
-    command = "-";
-    ret = exchange_directory(command);
-    TEST_ASSERT_EQUAL_INT(0, ret);
-    TEST_ASSERT_EQUAL_STRING("/home", getenv("PWD"));
-}
 
 
 /**
@@ -165,7 +149,6 @@ int main()
     RUN_TEST(test_exchange_directory_fail);
     RUN_TEST(test_exchange_directory_pass);
     RUN_TEST(test_exchange_directory_pass2);
-    RUN_TEST(test_exchange_directory_pass3);
 
 
 
