@@ -1,0 +1,5 @@
+ls
+ls > a.out 
+cat < a.out
+ls | wc
+echo "hola"

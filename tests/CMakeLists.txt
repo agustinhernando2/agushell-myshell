@@ -16,7 +16,7 @@ file(GLOB TESTS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.c)
 # ${CMAKE_CURRENT_SOURCE_DIR}/../src/functions.c)
 
 
-if(RUN_COVERAGE)
+if(RUNS_COVERAGE)
 	message("Coverage enabled")
 	find_program(LCOV_PATH lcov)
 		if(NOT LCOV_PATH)

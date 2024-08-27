@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../include/functions.h"
+#include "../include/common.h"
 
 void print_banner()
 {
@@ -15,6 +15,12 @@ void print_banner()
 
 int main(int argc, char* argv[])
 {
+    // default signal handling
+    signal(SIGCHLD, handler);
+    signal(SIGTSTP, handler);
+    signal(SIGQUIT, handler);
+    signal(SIGINT, handler);
+
     char* username = getenv(USER);
     if (username == NULL)
     {
@@ -28,9 +34,9 @@ int main(int argc, char* argv[])
         perror("gethostname");
         exit(EXIT_FAILURE);
     }
+    print_banner();
 
     char command[CMD_MAX];
-    print_banner();
     if (argc == 1)
     {
         while (get_running())
@@ -47,8 +53,46 @@ int main(int argc, char* argv[])
             };
 
             get_command(command);
-            exec_command(command);
+            
+            // if the command is empty, continue and ask for another command
+            if(strcmp("\n",command) == 0 || strcmp("",command) == 0 || strlen(command) == 0){
+                continue;
+            }
+
+            int r = exec_command(command);
+            if (r == -1)
+            {
+                fprintf(stderr, "Error: exec_command\n");
+                exit(EXIT_FAILURE);
+            }
         }
+    } else if (argc == 2){ 
+        // read and execute a batchfile
+        FILE *file = fopen(argv[1], "r"); //abro archivo en modo lectura
+        if (!file){
+            printf("Error al abrir el archivo\n");
+            exit(1);
+        }
+
+        // read each line
+        char input[MAX_LENGHT];
+        while(!feof(file)){
+
+            fgets(command, MAX_LENGHT, file);
+            if ((strlen(command) > 0) && (command[strlen(command) - 1] == '\n')){ 
+                command[strlen(command) - 1] = '\0';
+            }
+
+            printf("Command readed: %s\n", command);
+            exec_command(command); 
+        }
+        fclose(file);
+    }    
+    else
+    {
+        fprintf(stderr, "Error: invalid number of arguments\n");
+        exit(EXIT_FAILURE);
     }
+
     exit(EXIT_SUCCESS);
 }

@@ -1,5 +1,5 @@
 #include <unity.h>
-#include <functions.h>
+#include <common.h>
 
 void test_test(){
     TEST_ASSERT_EQUAL(0,0);
@@ -14,8 +14,11 @@ void test_generate_prompt(){
     getcwd(pwd, sizeof(pwd));
 
     char buffer[BUFFER_SIZE];
-    snprintf(buffer, sizeof(buffer), AMARILLO "%s@" GRIS "%s:~%s$" CELESTE ">", username, hostname, pwd);
-
+    int r = snprintf(buffer, sizeof(buffer), YELLOW "%s@" GRAY "%s:%s$" BLUE ">", username, hostname, pwd);
+    if (r < 0 || r >= sizeof(buffer))
+    {
+        TEST_ASSERT_EQUAL_STRING(NULL, prompt);
+    }
     TEST_ASSERT_EQUAL_STRING(buffer, prompt);
 }
 
@@ -46,7 +49,7 @@ void test_env_var_not_exists(void)
     char buffer[BUFFER_SIZE];
     int ret = echo_shell("$NO_EXISTE", 10, buffer, BUFFER_SIZE);
     TEST_ASSERT_EQUAL_INT(-1, ret);
-    TEST_ASSERT_EQUAL_STRING(ROJO "Environment not found: NO_EXISTE", buffer);
+    TEST_ASSERT_EQUAL_STRING(RED "Environment not found: NO_EXISTE" NORMAL, buffer);
 }
 
 void test_env_var_not_exists_small_buffer(void)
@@ -74,6 +77,44 @@ void test_normal_message(void)
     TEST_ASSERT_EQUAL_INT(0, ret);
     TEST_ASSERT_EQUAL_STRING("Hola Mundo", buffer);
 }
+
+void test_exchange_directory(void)
+{
+    setenv("PWD", "/", 1);
+    char* command = "/";
+    int ret = exchange_directory(command);
+    TEST_ASSERT_EQUAL_INT(0, ret);
+    TEST_ASSERT_EQUAL_STRING("/", getenv("PWD"));
+}
+
+void test_exchange_directory_fail(void)
+{
+    setenv("PWD", "/", 1);
+    char* command = "/noexiste";
+    int ret = exchange_directory(command);
+    TEST_ASSERT_EQUAL_INT(-1, ret);
+    TEST_ASSERT_EQUAL_STRING("/", getenv("PWD"));
+}
+
+void test_exchange_directory_pass(void)
+{
+    chdir("/");
+    char* command = "home";
+    int ret = exchange_directory(command);
+    TEST_ASSERT_EQUAL_INT(0, ret);
+    TEST_ASSERT_EQUAL_STRING("/home", getenv("PWD"));
+}
+
+void test_exchange_directory_pass2(void)
+{
+    chdir("/home");
+    char* command = "/dev";
+    int ret = exchange_directory(command);
+    TEST_ASSERT_EQUAL_INT(0, ret);
+    TEST_ASSERT_EQUAL_STRING("/dev", getenv("PWD"));
+}
+
+
 
 /**
  * @brief run at the end of tests.
@@ -103,6 +144,12 @@ int main()
     RUN_TEST(test_env_var_not_exists_small_buffer);
     RUN_TEST(test_valid_comment);
     RUN_TEST(test_normal_message);
+
+    RUN_TEST(test_exchange_directory);
+    RUN_TEST(test_exchange_directory_fail);
+    RUN_TEST(test_exchange_directory_pass);
+    RUN_TEST(test_exchange_directory_pass2);
+
 
 
     return UNITY_END();

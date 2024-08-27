@@ -61,3 +61,4 @@ dox_errors.txt
 /build/
 .gdb_history
 .vscode/
+coverage.txt
