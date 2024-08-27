@@ -1,79 +1,92 @@
-# agushell-myshell
-## MyShell basic
+# MyShell basic
+![Banner](img/banner.png)
 ### SOI - FCEFyN - UNC - 2022
 
+## Objetive
+The development of this Practical Work:
 
-## Objetivo
-Con el desarrollo del siguiente Trabajo Práctico (TP), se busca:
+- Utilize process creation mechanisms.
+- Utilize concurrency and IPC mechanisms.
+- Design a command-line interpreter in the style of the Bourne shell.
 
-- Utilizar mecanismos de creación de Procesos.
-- Utilizar mecanismos de concurrencia e IPC.
-- Diseñar un intérprete de línea de comandos al estilo Bourne shell.
+## Introduction
+This practical work consists of developing a program in the C language on GNU/Linux. The work is divided into incremental solutions.
 
-
-## Duración
-Con el material dado en clase, este laboratorio está diseñado para resolverse entre 8 y 10 horas.
-
-
-## Introducción
-Este trabajo práctico consta en la elaboración de un programa en lenguaje C sobre _GNU/Linux_. El trabajo se divide en soluciones incrementales.
-
-
-## Actividades
+## Activities
 ### 1. Command line prompt
-_myshell_ debe contar con un prompt que contenga el camino al directorio actual.
+_myshell_ should have a prompt that displays the current directory path.
 
-Por ejemplo, para el home: _username@hostname:~$_
-
-
+For example, home: _username@hostname:~$_
+![](img/image1.png)
 
 ### 2. Internal commands
-_myshell_ debe soportar los siguientes comandos internos:
+_myshell_ should support the following internal commands:
 
-- __cd \<directorio\>__ : cambia el directorio actual a \<directorio\>. Si \<directorio\> no está presente, reporta el directorio actual. Si el directorio no existe se debe imprimir un error apropiado. Además, este comando debe cambiar la variable de entorno PWD. 
-Este comando debe soportar la opción *cd -*, que retorna al último directorio de trabajo (__OLDPWD__).
+> __cd \<directory\>__ : changes the current directory to \<directory\>. If \<directory\> is not provided, it reports the current directory. If the directory does not exist, an appropriate error should be printed. Additionally, this command should update the PWD environment variable.
+This command should support the *cd -* option, which returns to the last working directory (__OLDPWD__).
 
-- __clr__: limpia la pantalla
+> __clr__: clears the screen.
 
-- __echo \<comentario\|env var\>__ : muestra \<comentario\> en la pantalla seguido por una línea nueva. (múltiples espacios\/tabs pueden ser reducidos a un espacio).
+> __echo \<comment\|env var\>__ : displays \<comment\> on the screen followed by a new line. (multiple spaces/tabs may be reduced to a single space).
 
-- __quit__ : cierra myshell
+> __quit__ : exits myshell.
+
+![](img/image2.png)
 
 ### 3. Program invocation
-Las entradas del usuario que no sean comandos internos deben ser interpretados como la invocación de un programa. La misma tiene que ser realizada mediante _fork_ y _execl_. Debe además soportar paths relativos y absolutos.
+User inputs that are not internal commands should be interpreted as invoking a program. This should be done using __fork__ and __execl__. It must also support both relative and absolute paths.
+
+![](img/image3.png)
 
 
-### 4. Batch file
-_myshell_ debe ser capaz de tomar sus comandos a ejecutar desde un archivo. Por ejemplo, si la shell es invocada con un argumento _myshell batchfile_. El _batchfile_ contiene un conjunto de comandos de línea para que la shell ejecute. 
+### 4. Executing Instructions from a Text File
+To execute a set of instructions from a text file, the file should be passed as a parameter when running MyShell, as follows:
+```bash
+./bin/myshell batchfile           
+```
+Where batchfile refers to the text file you want to read. There should be one instruction per line.
 
-Cuando se alcance el fin de archivo (EOF), _myshell_ debe cerrarse.
+After executing the instructions, MyShell will terminate.
 
-Notar que si myshell se ejecuta sin argumento (.\/myshell), se tiene que mostrar el command prompt y se debe esperar a comandos del usuario vía stdin.
+A sample batchfile is provided as an example.
+
+![](img/image4.png)
 
 ### 5. Background execution
-Un ampersand & al final de la línea de comando indica que la shell debe retornar al prompt inmediatamente luego de lanzar al programa a ejecutarse en background.
+An ampersand & at the end of the command line indicates that the shell should return to the prompt immediately after launching the program to be executed in the background.
 
-Cuando se comienza un trabajo en background, se debe imprimir un mensaje indicando su _Trabajo_ y su _ID de proceso_.
-
+When a background job is started, a message should be printed indicating its Job and Process ID.
 `[<job id>] <process id>`
 
-Ejemplo:
-`$ echo 'hola' &
+Example:
+`$ echo 'Hello World' &
 [1] 10506
 hola`
 
-## Criterios de Corrección
-- Se debe compilar el código con los flags de compilación: -Wall -Pedantic -Werror 
-- Dividir el código en módulos de manera juiciosa.
-- Estilo de código.
-- El código no debe contener errores, ni warnings.
-- El código no debe contener errores de cppcheck.
-- _myshell_ no debe crear procesos zombies.
+![](img/image5.png)
 
-## Qué se debe Entregar
-- Informe del desarrollo del proyecto (markdown).
-- Código (funcionando bajo las especificaciones dadas y bajo cualquier caso de test de parámetros de entrada).
-- Makefile
-- Todo en el GitHub
+### 6. Support for Commands ctrl-c, ctrl-z y ctrl-|
+You can enter any of these key combinations to abort or pause processes running in MyShell.
 
+![](img/image6.png)
 
+### 7. Pipes
+The use of pipes (the | character) is supported to "chain processes," using the stdout of one as the stdin of the next, and so on. For example:
+```bash
+ls | grep .txt           
+```
+The command "ls" will be executed, and its output will be sent to the grep command as input. In this example, the grep command will filter the files that contain the string ".txt" from the items listed by "ls".
+
+![](img/image7.png)
+
+### 8. Input and Output Redirection
+You can redirect the input, output, or both of a program. By default, a program’s input is taken from characters typed by the user, and the terminal is the output. With this functionality, we can change this behavior, allowing a program to take input from a file, for example, or directing it to write its output to a file. For example:
+```bash
+ls > outputfile.txt          
+```
+This will direct the results of the "ls" command to a file named outputfile.txt. If the file does not exist, it will be created. If the file already contains text, it will be overwritten. For input redirection, the specified input file must exist; otherwise, the command will be invalid.
+
+![](img/image8.png)
+
+### ¿Dónde se encuentran los pipes en el filesystem, qué atributos tienen?
+Los pipes no se encuentran en el filesystem que se encuentran los demás binarios, ya que se encuentra en otro filesystem "propio" virtual. Este filesystem virtual se llama PipeFS. Se encuentra montado en el kernel. A diferencia de otros filesystems que están montados bajo "/", este se encuentra montado en "pipe", es decir que tiene su propio directorio root. La entrada a este fylesistem es la llamada al sistema "pipe()". Este filesystem no puede ser visto por los usuarios, y es un sisteama de archivos en memoria.
