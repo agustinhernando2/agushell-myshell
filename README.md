@@ -68,7 +68,7 @@ hola`
 ### 6. Support for Commands ctrl-c, ctrl-z y ctrl-|
 You can enter any of these key combinations to abort or pause processes running in MyShell.
 
-![](img/image6.png)
+![](img/image8.png)
 
 ### 7. Pipes
 The use of pipes (the | character) is supported to "chain processes," using the stdout of one as the stdin of the next, and so on. For example:
@@ -86,7 +86,7 @@ ls > outputfile.txt
 ```
 This will direct the results of the "ls" command to a file named outputfile.txt. If the file does not exist, it will be created. If the file already contains text, it will be overwritten. For input redirection, the specified input file must exist; otherwise, the command will be invalid.
 
-![](img/image8.png)
+![](img/image6.png)
 
 ### ¿Dónde se encuentran los pipes en el filesystem, qué atributos tienen?
 Los pipes no se encuentran en el filesystem que se encuentran los demás binarios, ya que se encuentra en otro filesystem "propio" virtual. Este filesystem virtual se llama PipeFS. Se encuentra montado en el kernel. A diferencia de otros filesystems que están montados bajo "/", este se encuentra montado en "pipe", es decir que tiene su propio directorio root. La entrada a este fylesistem es la llamada al sistema "pipe()". Este filesystem no puede ser visto por los usuarios, y es un sisteama de archivos en memoria.
